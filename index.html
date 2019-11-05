@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>HTS</title>
+  <!-- Import TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.0.0/dist/tf.min.js"></script>
+  <!-- Import tfjs-vis -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-vis@1.0.2/dist/tfjs-vis.umd.min.js"></script>
+  <!-- Import the main script file -->
+  <script src="tokenizer.js"></script>
+  <script>
+
+	function load_Distionary_JSON(filename, callback) {  
+		var xobj = new XMLHttpRequest();
+			xobj.overrideMimeType("application/json");
+		xobj.open('GET', filename, true); // Replace 'my_data' with the path to your file
+		xobj.onreadystatechange = function () {
+			  if (xobj.readyState == 4 && xobj.status == "200") {
+				// Required use of an anonymous callback as .open will NOT return a value but simply returns undefined in asynchronous mode
+				callback(xobj.responseText);
+			  }
+		};
+		xobj.send(null);  
+	}
+
+
+	async function MakePrediction(seedWordToken) {
+		const model = await tf.loadLayersModel('http://localhost/TFJS/model.json');
+
+		const shape = [1, 50];
+
+		//https://stackoverflow.com/questions/51663068/tensorflow-js-tokenizer
+		//RELPAX 40MG TABLETS X 6 X 1 BLISTER
+
+		//var seedWordToken = [695,  52,  49,  93, 353,  93,   6, 623,   0,   0,   0,   0,   0, 0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0,  0,   0,   0,   0,   0,   0,   0,   0,   0,   0,   0];
+        var x = tf.tensor(seedWordToken, shape);
+		//console.log(x.shape);
+		
+
+		model.predict(x).data().then(predictions => {
+		  const resultIdx = tf.argMax(predictions).dataSync()[0];
+		  console.log('Predicted Word ::', resultIdx);
+		  //alert('Predicted Word ::' +  resultIdx);
+
+		  load_Distionary_JSON('exsid.json', function(response) {
+			  const obj = JSON.parse(response);
+
+			  //alert('Predicted EXSID: ' +  obj["A" + resultIdx]);
+			  document.getElementById('results').innerHTML ="<h1>Predicted EXSID: " + obj["A" + resultIdx] + "</h1>";
+		  });
+		})
+		
+
+	}
+
+    function init() {
+		var myTextarea = document.getElementById("myTextarea").value;
+		if(myTextarea !== null) {
+			load_Distionary_JSON('dictionary.json', function(response) {
+				// Parse JSON string into object
+				const obj = JSON.parse(response);
+
+				var maktg = myTextarea.trim();
+				
+				//maktg = maktg.split(" ");
+				//const maktg_length = maktg.length;
+
+				const tokenizer = new Tokenizer();
+				maktg = tokenizer.cleanText(maktg)
+
+				const maktg_length = maktg.length;
+
+
+				var prediction_str = "";
+
+				for(var i=0; i< maktg_length; i++) {
+
+					//console.log( maktg[i].toLowerCase().split(".").length );
+					if(maktg[i].toLowerCase().split(".").length > 1) {
+						var f = obj[maktg[i].toLowerCase().split(".")[0]];
+						var d = obj[maktg[i].toLowerCase().split(".")[1]];
+						//console.log(f + ":" + d);
+
+						if(f !== undefined)
+							prediction_str += f + ",";
+
+						if(d !== undefined)
+							prediction_str += d + ",";
+
+
+
+					} else {
+						var g = obj[maktg[i].toLowerCase()];
+						if(g !== undefined)
+							prediction_str += g + ",";
+					}
+				}
+
+				console.log(prediction_str.split(",").length-1);
+				const zerolen = prediction_str.split(",").length-1;
+
+
+				for(var i=0; i< 50-zerolen; i++) {
+					prediction_str += "0,";
+				}
+
+				prediction_str = prediction_str.substring(0, prediction_str.length-1);
+				console.log(prediction_str);
+
+				prediction_str = JSON.parse("[" + prediction_str + "]");
+
+				MakePrediction(prediction_str);
+
+				
+			});
+		}
+	}
+
+	const texts = 'CS WATERMELON SPLASH REF 12CT .15OZ';
+	const tokenizer = new Tokenizer();
+
+	tokenizer.wordIndex = {
+      hello: 1,
+      world: 2,
+    };
+    tokenizer.indexWord = {
+      1: 'hello',
+      2: 'world'
+    };
+
+	console.log(tokenizer.cleanText(texts));
+
+  </script>
+</head>
+<body>
+<b>Enter the MAKTG and click Predict<b>
+<br>
+<textarea id="myTextarea" rows="4" cols="50"></textarea><br>
+<button type="button"  onclick="init()">Predict</button>
+<div id="results"></div> 
+</body>
+</html>
